@@ -309,8 +309,6 @@ module bucket_protocol::buck {
 
         let prev_debtor = find_valid_insertion(bucket, &bottle);
 
-        std::debug::print(&prev_debtor);
-
         bottle::insert_bottle(
             &mut bucket.bottle_table,
             debtor,
