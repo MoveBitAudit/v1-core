@@ -13,6 +13,7 @@ module bucket_protocol::buck {
 
     use bucket_protocol::bottle::{Self, Bottle};
     use bucket_protocol::mock_oracle::{PriceFeed, get_price};
+    use bucket_protocol::well::{Self, Well};
     use bucket_framework::linked_table::{Self, LinkedTable};
 
     // Constant
@@ -78,6 +79,7 @@ module bucket_protocol::buck {
             id,
             buck_treasury,
         });
+        well::create<SUI>(ctx);
     }
 
     // Functions
@@ -208,13 +210,16 @@ module bucket_protocol::buck {
 
     public fun flash_repay<T>(
         protocol: &mut BucketProtocol,
+        well: &mut Well<T>,
         repayment: Balance<T>,
         recipit: FlashLoanRecipit<T>
     ) {
         let bucket = get_bucket_mut<T>(protocol);
-        let FlashLoanRecipit { amount, fee } = recipit;
+        let FlashLoanRecipit {amount, fee} = recipit;
         assert!(balance::value(&repayment) == amount + fee, EFlashLoanError);
+        let fee = balance::split(&mut repayment, fee);
         balance::join(&mut bucket.vault, repayment);
+        well::collect_fee(well, fee);
     }
 
     fun repay_internal<T>(
@@ -353,7 +358,7 @@ module bucket_protocol::buck {
     }
 
     #[test_only]
-    public fun new_for_testing<T>(witness: BUCK, ctx: &mut TxContext): BucketProtocol {
+    public fun new_for_testing<T>(witness: BUCK, ctx: &mut TxContext): (BucketProtocol, Well<T>) {
         let (buck_treasury, buck_metadata) = coin::create_currency(
             witness,
             8,
@@ -372,7 +377,7 @@ module bucket_protocol::buck {
             minimal_collateral_ratio: 120,
             bottle_table: linked_table::new(ctx)
         });
-        BucketProtocol { id, buck_treasury }
+        (BucketProtocol { id, buck_treasury }, well::new_for_testing(ctx))
     }
 
     #[test]
@@ -450,5 +455,3 @@ module bucket_protocol::buck {
         test_scenario::end(scenario_val);
     }
 }
-
-
