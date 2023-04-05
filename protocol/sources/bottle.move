@@ -6,7 +6,7 @@ module bucket_protocol::bottle {
     friend bucket_protocol::buck;
 
     const EUnsortedInsertion: u64 = 0;
-    const ECannotReachCollateralRatio: u64 = 1;
+    const ECollateralRatioTooLow: u64 = 1;
     const ECannotRedeemFromBottle: u64 = 2;
     const EDestroyNonEmptyBottle: u64 = 3;
 
@@ -15,8 +15,8 @@ module bucket_protocol::bottle {
         buck_amount: u64,
     }
 
-    public(friend) fun new(collateral_amount: u64, buck_amount: u64): Bottle {
-        Bottle { collateral_amount, buck_amount }
+    public(friend) fun new(): Bottle {
+        Bottle { collateral_amount: 0, buck_amount: 0 }
     }
 
     public(friend) fun insert_bottle(
@@ -49,22 +49,19 @@ module bucket_protocol::bottle {
         linked_table::insert_back(bottle_table, prev_debtor_opt, debtor, bottle);
     }
 
-    public(friend) fun borrow_result(
+    public(friend) fun record_borrow(
         bottle: &mut Bottle,
         price: u64,
         denominator: u64,
-        collateral_ratio: u64,
+        minimal_cr: u64,
         collateral_amount: u64,
-    ): u64 {
-        let sui_factor = (bottle.collateral_amount + collateral_amount) * price * 100;
-        let buck_factor = collateral_ratio * denominator * bottle.buck_amount;
-        assert!(sui_factor > buck_factor, ECannotReachCollateralRatio);
-
-        let minted_buck_amount = (sui_factor - buck_factor) / collateral_ratio * denominator;
+        expected_buck_amount: u64,
+    ) {
         bottle.collateral_amount = bottle.collateral_amount + collateral_amount;
-        bottle.buck_amount = bottle.buck_amount + minted_buck_amount;
+        bottle.buck_amount = bottle.buck_amount + expected_buck_amount;
 
-        minted_buck_amount
+        let new_collateral_ration = bottle.collateral_amount * price / bottle.buck_amount / denominator;
+        assert!(new_collateral_ration * 100 > minimal_cr, ECollateralRatioTooLow);
     }
 
     public(friend) fun repay_result(bottle: &mut Bottle, repay_amount: u64): (bool, u64) {
@@ -135,7 +132,7 @@ module bucket_protocol::bottle {
 
     #[test_only]
     public fun print_bottle(bottle: &Bottle) {
-        std::debug::print(&(1000*bottle.collateral_amount/bottle.buck_amount));
+        std::debug::print(&(100*bottle.collateral_amount/bottle.buck_amount));
         std::debug::print(bottle);
     }
 
