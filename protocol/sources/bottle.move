@@ -53,15 +53,15 @@ module bucket_protocol::bottle {
         bottle: &mut Bottle,
         price: u64,
         denominator: u64,
-        minimal_cr: u64,
+        min_collateral_ratio: u64,
         collateral_amount: u64,
         expected_buck_amount: u64,
     ) {
         bottle.collateral_amount = bottle.collateral_amount + collateral_amount;
         bottle.buck_amount = bottle.buck_amount + expected_buck_amount;
 
-        let new_collateral_ration = bottle.collateral_amount * price / bottle.buck_amount / denominator;
-        assert!(new_collateral_ration * 100 > minimal_cr, ECollateralRatioTooLow);
+        let collateral_value = bottle.collateral_amount * price / denominator;
+        assert!(collateral_value * 100 > min_collateral_ratio * bottle.buck_amount, ECollateralRatioTooLow);
     }
 
     public(friend) fun repay_result(bottle: &mut Bottle, repay_amount: u64): (bool, u64) {
@@ -132,7 +132,12 @@ module bucket_protocol::bottle {
 
     #[test_only]
     public fun print_bottle(bottle: &Bottle) {
-        std::debug::print(&(100*bottle.collateral_amount/bottle.buck_amount));
+        if (bottle.buck_amount == 0) {
+            std::debug::print(&0);
+        }
+        else {
+            std::debug::print(&(100*bottle.collateral_amount / bottle.buck_amount));
+        };
         std::debug::print(bottle);
     }
 

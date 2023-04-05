@@ -39,7 +39,7 @@ module bucket_protocol::buck {
     struct Bucket<phantom T> has key, store {
         id: UID,
         vault: Balance<T>,
-        minimal_collateral_ratio: u64,
+        min_collateral_ratio: u64,
         bottle_table: LinkedTable<address, Bottle>,
     }
 
@@ -72,7 +72,7 @@ module bucket_protocol::buck {
         dof::add(&mut id, BucketType<SUI> {}, Bucket<SUI> {
             id: object::new(ctx),
             vault: balance::zero(),
-            minimal_collateral_ratio: 110, // 110%
+            min_collateral_ratio: 110, // 110%
             bottle_table: linked_table::new(ctx)
         });
         transfer::share_object( BucketProtocol {
@@ -108,7 +108,7 @@ module bucket_protocol::buck {
 
         bottle::record_borrow(
             &mut bottle,
-            price, denominator, bucket.minimal_collateral_ratio,
+            price, denominator, bucket.min_collateral_ratio,
             collateral_amount, expected_buck_amount
         );
 
@@ -168,7 +168,7 @@ module bucket_protocol::buck {
         let bottle_asset_amount = bottle::get_collateral_amount(bottle);
         let bottle_buck_amount= bottle::get_buck_amount(bottle);
         bottle_asset_amount * price / denominator <=
-            bottle_buck_amount * bucket.minimal_collateral_ratio / 100
+            bottle_buck_amount * bucket.min_collateral_ratio / 100
     }
 
     public fun liquidate<T>(
@@ -301,7 +301,7 @@ module bucket_protocol::buck {
         let bottle = bottle::new();
         bottle::record_borrow(
             &mut bottle,
-            price, denominator, bucket.minimal_collateral_ratio,
+            price, denominator, bucket.min_collateral_ratio,
             collateral_amount, expected_buck_amount,
         );
 
@@ -373,7 +373,7 @@ module bucket_protocol::buck {
         dof::add(&mut id, BucketType<SUI> {}, Bucket<SUI> {
             id: object::new(ctx),
             vault: balance::zero(),
-            minimal_collateral_ratio: 120,
+            min_collateral_ratio: 120,
             bottle_table: linked_table::new(ctx)
         });
         (BucketProtocol { id, buck_treasury }, well::new_for_testing(ctx))
