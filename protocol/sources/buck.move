@@ -88,7 +88,7 @@ module bucket_protocol::buck {
         protocol: &mut BucketProtocol,
         oracle: &PriceFeed<T>,
         collateral_input: Balance<T>,
-        expected_buck_amount: u64,
+        buck_output_amount: u64,
         prev_debtor: Option<address>,
         ctx: &TxContext,
     ): Balance<BUCK> {
@@ -109,7 +109,7 @@ module bucket_protocol::buck {
         bottle::record_borrow(
             &mut bottle,
             price, denominator, bucket.min_collateral_ratio,
-            collateral_amount, expected_buck_amount
+            collateral_amount, buck_output_amount
         );
 
         bottle::insert_bottle(
@@ -119,16 +119,16 @@ module bucket_protocol::buck {
             prev_debtor,
         );
 
-        coin::mint_balance(&mut protocol.buck_treasury, expected_buck_amount)
+        coin::mint_balance(&mut protocol.buck_treasury, buck_output_amount)
     }
 
     public fun repay<T>(
         protocol: &mut BucketProtocol,
-        repayment: Balance<BUCK>,
+        buck_input: Balance<BUCK>,
         ctx: &TxContext,
     ): Balance<T> {
-        let repayment_amount = balance::value(&repayment);
-        balance::decrease_supply(coin::supply_mut(&mut protocol.buck_treasury), repayment);
+        let repayment_amount = balance::value(&buck_input);
+        balance::decrease_supply(coin::supply_mut(&mut protocol.buck_treasury), buck_input);
         let bucket = get_bucket_mut<T>(protocol);
         repay_internal<T>(bucket, repayment_amount, tx_context::sender(ctx))
     }
@@ -136,7 +136,7 @@ module bucket_protocol::buck {
     public fun redeem<T>(
         protocol: &mut BucketProtocol,
         oracle: &PriceFeed<T>,
-        input_buck: Balance<BUCK>,
+        buck_input: Balance<BUCK>,
         ctx: &mut TxContext,
     ): Balance<T> {
         let bucket = get_bucket_mut<T>(protocol);
@@ -148,11 +148,11 @@ module bucket_protocol::buck {
             first_debtor,
             price,
             denominator,
-            &mut input_buck,
+            &mut buck_input,
             &mut output_asset,
             ctx,
         );
-        balance::destroy_zero(input_buck);
+        balance::destroy_zero(buck_input);
         output_asset
     }
 
@@ -238,7 +238,7 @@ module bucket_protocol::buck {
         debtor_opt: Option<address>,
         price: u64,
         denominator: u64,
-        input_buck: &mut Balance<BUCK>,
+        buck_input: &mut Balance<BUCK>,
         output_asset: &mut Balance<T>,
         ctx: &mut TxContext,
     ) {
@@ -248,10 +248,10 @@ module bucket_protocol::buck {
         let next_debtor = *linked_table::next(&bucket.bottle_table, debtor_opt);
 
         let bottle = linked_table::borrow_mut(&mut bucket.bottle_table, debtor_opt);
-        let input_buck_amount = balance::value(input_buck);
+        let buck_input_amount = balance::value(buck_input);
         let (
             redeemed_buck_amount, redeemer_amount, debtor_amount, redemption_complete
-        ) = bottle::redeem_result(bottle, price, denominator, input_buck_amount);
+        ) = bottle::redeem_result(bottle, price, denominator, buck_input_amount);
 
         // return debtor remain collateral
         let remain_collateral = balance::split(&mut bucket.vault, debtor_amount);
@@ -267,7 +267,7 @@ module bucket_protocol::buck {
         };
 
         // burn redeemed buck
-        let redeemed_buck = balance::split(input_buck, redeemed_buck_amount);
+        let redeemed_buck = balance::split(buck_input, redeemed_buck_amount);
         balance::decrease_supply(coin::supply_mut(&mut protocol.buck_treasury), redeemed_buck);
 
         // if not complete, keep recursive
@@ -277,7 +277,7 @@ module bucket_protocol::buck {
                 next_debtor,
                 price,
                 denominator,
-                input_buck,
+                buck_input,
                 output_asset,
                 ctx,
             );
@@ -289,7 +289,7 @@ module bucket_protocol::buck {
         protocol: &mut BucketProtocol,
         oracle: &PriceFeed<T>,
         collateral_input: Balance<T>,
-        expected_buck_amount: u64,
+        buck_output_amount: u64,
         ctx: &TxContext,
     ): Balance<BUCK> {
         let bucket = get_bucket_mut<T>(protocol);
@@ -302,7 +302,7 @@ module bucket_protocol::buck {
         bottle::record_borrow(
             &mut bottle,
             price, denominator, bucket.min_collateral_ratio,
-            collateral_amount, expected_buck_amount,
+            collateral_amount, buck_output_amount,
         );
 
         balance::join(&mut bucket.vault, collateral_input);
@@ -316,7 +316,7 @@ module bucket_protocol::buck {
             prev_debtor
         );
 
-        balance::increase_supply(coin::supply_mut(&mut protocol.buck_treasury), expected_buck_amount)
+        balance::increase_supply(coin::supply_mut(&mut protocol.buck_treasury), buck_output_amount)
     }
 
     fun find_valid_insertion<T>(
@@ -417,20 +417,20 @@ module bucket_protocol::buck {
                 let oracle_price = 500 + test_random::next_u64(rangr) % 2000;
                 mock_oracle::update_price(&ocap, &mut oracle, oracle_price);
 
-                let input_sui_amount = 1000000 * (test_random::next_u8(rangr) as u64) + test_random::next_u64(rangr) % 100000000;
-                let input_sui = balance::create_for_testing<SUI>(input_sui_amount);
+                let sui_input_amount = 1000000 * (test_random::next_u8(rangr) as u64) + test_random::next_u64(rangr) % 100000000;
+                let sui_input = balance::create_for_testing<SUI>(sui_input_amount);
 
-                let expected_buck_amount = test_random::next_u64(rangr) % 50000000;
+                let buck_output_amount = test_random::next_u64(rangr) % 50000000;
 
                 let buck_output = auto_insert_borrow(
                     &mut protocol,
                     &oracle,
-                    input_sui,
-                    expected_buck_amount,
+                    sui_input,
+                    buck_output_amount,
                     test_scenario::ctx(scenario)
                 );
                 bottle::print_bottle(linked_table::borrow(&get_bucket<SUI>(&protocol).bottle_table, borrower));
-                test_utils::assert_eq(balance::value(&buck_output), expected_buck_amount);
+                test_utils::assert_eq(balance::value(&buck_output), buck_output_amount);
                 test_utils::assert_eq(linked_table::length(&get_bucket<SUI>(&protocol).bottle_table), (idx as u64) + 1);
                 balance::destroy_for_testing(buck_output);
 
