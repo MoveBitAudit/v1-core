@@ -3,7 +3,7 @@ module bucket_protocol::bottle {
     use std::option::{Self, Option};
     use bucket_framework::linked_table::{Self, LinkedTable};
 
-    friend bucket_protocol::buck;
+    friend bucket_protocol::bucket;
 
     const EUnsortedInsertion: u64 = 0;
     const ECollateralRatioTooLow: u64 = 1;
@@ -64,7 +64,7 @@ module bucket_protocol::bottle {
         assert!(collateral_value * 100 > min_collateral_ratio * bottle.buck_amount, ECollateralRatioTooLow);
     }
 
-    public(friend) fun repay_result(bottle: &mut Bottle, repay_amount: u64): (bool, u64) {
+    public(friend) fun record_repay(bottle: &mut Bottle, repay_amount: u64): (bool, u64) {
         if (repay_amount >= bottle.buck_amount) {
             let return_sui_amount = bottle.collateral_amount;
             bottle.collateral_amount = 0;
@@ -78,6 +78,19 @@ module bucket_protocol::bottle {
             // not fully repaid
             (false, return_sui_amount)
         }
+    }
+
+    public(friend) fun record_redeem(
+        bottle: &mut Bottle,
+        price: u64,
+        denominator: u64,
+        buck_amount: u64,
+    ): u64 {
+        let redeemed_amount = buck_amount * denominator / price;
+        assert!(bottle.collateral_amount >= redeemed_amount, ECannotRedeemFromBottle);
+        bottle.collateral_amount = bottle.collateral_amount - redeemed_amount;
+        bottle.buck_amount = bottle.buck_amount - buck_amount;
+        redeemed_amount
     }
 
     public(friend) fun redeem_result(
@@ -139,16 +152,5 @@ module bucket_protocol::bottle {
             std::debug::print(&(100*bottle.collateral_amount / bottle.buck_amount));
         };
         std::debug::print(bottle);
-    }
-
-    #[test_only]
-    public fun print_bottle_table(bottle_table: &LinkedTable<address, Bottle>) {
-        let curr_debtor = linked_table::front(bottle_table);
-        while (option::is_some(curr_debtor)) {
-            let debtor = *option::borrow(curr_debtor);
-            std::debug::print(&debtor);
-            print_bottle(linked_table::borrow(bottle_table, debtor));
-            curr_debtor = linked_table::next(bottle_table, debtor);
-        }
     }
 }
