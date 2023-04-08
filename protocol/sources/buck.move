@@ -13,7 +13,7 @@ module bucket_protocol::buck {
 
     use bucket_protocol::well::{Self, Well};
     use bucket_protocol::bucket::{Self, Bucket, FlashRecipit};
-    use bucket_protocol::mock_oracle::PriceFeed;
+    use bucket_oracle::oracle::Oracle;
 
     // Constant
 
@@ -21,12 +21,8 @@ module bucket_protocol::buck {
     const REDEMTION_FEE: u64 = 5; // 0.5%
 
     // Errors
-
-    const ECollateralRatioTooLow: u64 = 0;
-    const ENotLiquidateable: u64 = 2;
-    const ENotEnoughToRedeem: u64 = 3;
-    const EBottleAlreadyExists: u64 = 6;
-    const ERepayerNoDebt: u64 = 7;
+    const ERepayerNoDebt: u64 = 0;
+    const ENotLiquidateable: u64 = 1;
 
     // Types
 
@@ -77,7 +73,7 @@ module bucket_protocol::buck {
 
     public fun borrow<T>(
         protocol: &mut BucketProtocol,
-        oracle: &PriceFeed<T>,
+        oracle: &Oracle,
         collateral_input: Balance<T>,
         buck_output_amount: u64,
         prev_debtor: Option<address>,
@@ -93,7 +89,7 @@ module bucket_protocol::buck {
     // for testing or when small size of bottle table, O(n) time complexity
     public fun auto_borrow<T>(
         protocol: &mut BucketProtocol,
-        oracle: &PriceFeed<T>,
+        oracle: &Oracle,
         collateral_input: Balance<T>,
         buck_output_amount: u64,
         ctx: &TxContext,
@@ -123,7 +119,7 @@ module bucket_protocol::buck {
 
     public fun auto_redeem<T>(
         protocol: &mut BucketProtocol,
-        oracle: &PriceFeed<T>,
+        oracle: &Oracle,
         buck_input: Balance<BUCK>,
     ): Balance<T> {
         let buck_input_amount = balance::value(&buck_input);
@@ -137,20 +133,20 @@ module bucket_protocol::buck {
 
     public fun is_liquidateable<T>(
         protocol: &BucketProtocol,
-        oracle: &PriceFeed<T>,
+        oracle: &Oracle,
         debtor: address
     ): bool {
         let bucket = get_bucket<T>(protocol);
-        bucket::is_liquidateable(bucket, oracle, debtor)
+        bucket::is_liquidateable<T>(bucket, oracle, debtor)
     }
 
     public fun liquidate<T>(
         protocol: &mut BucketProtocol,
-        oracle: &PriceFeed<T>,
+        oracle: &Oracle,
         buck_input: Balance<BUCK>,
         debtor: address,
     ): Balance<T> {
-        assert!(is_liquidateable(protocol, oracle, debtor), ENotLiquidateable);
+        assert!(is_liquidateable<T>(protocol, oracle, debtor), ENotLiquidateable);
         let buck_input_amount = balance::value(&buck_input);
 
         // burn BUCK
@@ -214,18 +210,20 @@ module bucket_protocol::buck {
         new_protocol(witness, ctx)
     }
 
+    #[test_only]
+    use bucket_oracle::oracle;
+
     #[test]
-    fun test_borrow() {
+    fun test_borrow(): (Oracle, oracle::AdminCap) {
         use sui::test_scenario;
         use sui::test_utils;
         use sui::test_random;
         use sui::address;
         use std::vector;
-        use bucket_protocol::mock_oracle;
 
         let dev = @0xde1;
         let borrowers = vector<address>[];
-        let borrower_count = 15;
+        let borrower_count = 12;
         let idx = 1u8;
         while (idx <= borrower_count) {
             vector::push_back(&mut borrowers, address::from_u256((idx as u256) + 10));
@@ -238,7 +236,7 @@ module bucket_protocol::buck {
             init(test_utils::create_one_time_witness<BUCK>(), test_scenario::ctx(scenario));
         };
 
-        let (oracle, ocap) = mock_oracle::new_for_testing<SUI>(1000, 1000, test_scenario::ctx(scenario));
+        let (oracle, ocap) = oracle::new_for_testing<SUI>(1000,test_scenario::ctx(scenario));
 
         let seed = b"bucket protocol";
         vector::push_back(&mut seed, borrower_count);
@@ -252,7 +250,7 @@ module bucket_protocol::buck {
                 let protocol = test_scenario::take_shared<BucketProtocol>(scenario);
 
                 let oracle_price = 500 + test_random::next_u64(rangr) % 2000;
-                mock_oracle::update_price(&ocap, &mut oracle, oracle_price);
+                oracle::update_price<SUI>(&ocap, &mut oracle, oracle_price);
 
                 let sui_input_amount = 1000000 * (test_random::next_u8(rangr) as u64) + test_random::next_u64(rangr) % 100000000;
                 let sui_input = balance::create_for_testing<SUI>(sui_input_amount);
@@ -283,7 +281,7 @@ module bucket_protocol::buck {
             test_scenario::return_shared(protocol);
         };
 
-        mock_oracle::destroy_for_testing(oracle, ocap);
         test_scenario::end(scenario_val);
+        (oracle, ocap)
     }
 }

@@ -2,22 +2,20 @@ module bucket_protocol::bucket {
 
     use sui::object::{Self, UID};
     use sui::balance::{Self, Balance};
-    use sui::tx_context::TxContext;
+    use sui::tx_context::{Self, TxContext};
     use std::option::{Self, Option};
 
     use bucket_framework::linked_table::{Self, LinkedTable};
-    use bucket_protocol::mock_oracle::{PriceFeed, get_price};
+    use bucket_oracle::oracle::{Self, Oracle};
     use bucket_protocol::bottle::{Self, Bottle, get_buck_amount};
-    use sui::tx_context;
 
     friend bucket_protocol::buck;
 
-    const ECannotBorrowWithFlashLoan: u64 = 0;
-    const ERepayerNoDebt: u64 = 1;
+    const EBucketLocked: u64 = 0;
     const EBottleNotFound: u64 = 1;
-    const ERepayTooMuch: u64 = 4;
-    const EFlashFeeNotEnough: u64 = 5;
-    const ENotEnoughToRedeem: u64 = 6;
+    const ERepayTooMuch: u64 = 2;
+    const EFlashFeeNotEnough: u64 = 3;
+    const ENotEnoughToRedeem: u64 = 4;
 
     const FLASH_LOAN_FEE_DIVISOR: u64 = 10000; // 0.01% fee
 
@@ -46,7 +44,7 @@ module bucket_protocol::bucket {
 
     public(friend) fun handle_borrow<T>(
         bucket: &mut Bucket<T>,
-        oracle: &PriceFeed<T>,
+        oracle: &Oracle,
         collateral_input: Balance<T>,
         buck_output_amount: u64,
         prev_debtor: Option<address>,
@@ -59,7 +57,7 @@ module bucket_protocol::bucket {
 
     public(friend) fun handle_auto_borrow<T>(
         bucket: &mut Bucket<T>,
-        oracle: &PriceFeed<T>,
+        oracle: &Oracle,
         collateral_input: Balance<T>,
         buck_output_amount: u64,
         ctx: &TxContext,
@@ -86,11 +84,11 @@ module bucket_protocol::bucket {
 
     public(friend) fun handle_auto_redeem<T>(
         bucket: &mut Bucket<T>,
-        oracle: &PriceFeed<T>,
+        oracle: &Oracle,
         buck_input_amount: u64,
     ): Balance<T> {
         let remain_buck_amount = buck_input_amount;
-        let (price, denominator) = get_price(oracle);
+        let (price, denominator) = oracle::get_price<T>(oracle);
         let bottle_table = &mut bucket.bottle_table;
         let collateral_output = balance::zero();
         while(remain_buck_amount > 0 && linked_table::length(bottle_table) > 0) {
@@ -152,10 +150,10 @@ module bucket_protocol::bucket {
 
     public fun is_liquidateable<T>(
         bucket: &Bucket<T>,
-        oracle: &PriceFeed<T>,
+        oracle: &Oracle,
         debtor: address,
     ): bool {
-        let (price, denominator) = get_price(oracle);
+        let (price, denominator) = oracle::get_price<T>(oracle);
         assert!(debt_exists(bucket, debtor), EBottleNotFound);
         let (bottle_collateral_amount, bottle_buck_amount) = get_bottle_info(bucket, debtor);
         bottle_collateral_amount * price / denominator <=
@@ -164,12 +162,12 @@ module bucket_protocol::bucket {
 
     fun borrow_internal<T>(
         bucket: &mut Bucket<T>,
-        oracle: &PriceFeed<T>,
+        oracle: &Oracle,
         borrower: address,
         collateral_input: Balance<T>,
         buck_output_amount: u64,
     ): Bottle {
-        assert!(!bucket.flash_lock, ECannotBorrowWithFlashLoan);
+        assert!(!bucket.flash_lock, EBucketLocked);
         let bottle = if(linked_table::contains(&bucket.bottle_table, borrower)) {
             linked_table::remove(&mut bucket.bottle_table, borrower)
         } else {
@@ -177,7 +175,7 @@ module bucket_protocol::bucket {
         };
 
         let collateral_amount = balance::value(&collateral_input);
-        let (price, denominator) = get_price(oracle);
+        let (price, denominator) = oracle::get_price<T>(oracle);
 
         bottle::record_borrow(
             &mut bottle,

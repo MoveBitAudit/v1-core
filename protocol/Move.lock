@@ -5,12 +5,21 @@ version = 0
 
 dependencies = [
   { name = "BucketFramework" },
+  { name = "BucketOracle" },
   { name = "Sui" },
 ]
 
 [[move.package]]
 name = "BucketFramework"
 source = { local = "../framework" }
+
+dependencies = [
+  { name = "Sui" },
+]
+
+[[move.package]]
+name = "BucketOracle"
+source = { git = "https://github.com/Bucket-Protocol/oracle.git", rev = "main", subdir = "" }
 
 dependencies = [
   { name = "Sui" },
