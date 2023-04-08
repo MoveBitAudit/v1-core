@@ -18,7 +18,7 @@ module bucket_protocol::well {
         info_table: TableVec<Info>,
     }
 
-    public fun new<T>(ctx: &mut TxContext): Well<T> {
+    public(friend) fun new<T>(ctx: &mut TxContext): Well<T> {
         Well {
             id: object::new(ctx),
             pool: balance::zero(),
@@ -26,7 +26,7 @@ module bucket_protocol::well {
         }
     }
 
-    public fun collect_fee<T>(well: &mut Well<T>, input: Balance<T>) {
+    public(friend) fun collect_fee<T>(well: &mut Well<T>, input: Balance<T>) {
         balance::join(&mut well.pool, input);
     }
 

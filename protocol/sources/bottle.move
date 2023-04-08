@@ -93,35 +93,11 @@ module bucket_protocol::bottle {
         redeemed_amount
     }
 
-    public(friend) fun redeem_result(
-        bottle: &mut Bottle,
-        price: u64,
-        denominator: u64,
-        buck_amount: u64,
-    ): (u64, u64, u64, bool) {
-        let redeemer_sui_amount = buck_amount * denominator / price;
-        assert!(bottle.collateral_amount >= redeemer_sui_amount, ECannotRedeemFromBottle);
-        let debtor_sui_amount = bottle.collateral_amount - redeemer_sui_amount;
-
-        if (buck_amount >= bottle.buck_amount) {
-            bottle.collateral_amount = 0;
-            bottle.buck_amount = 0;
-            if (buck_amount == bottle.buck_amount)
-                (buck_amount, redeemer_sui_amount, debtor_sui_amount, true)
-            else
-                (bottle.buck_amount, redeemer_sui_amount, debtor_sui_amount, false)
-        } else {
-            bottle.collateral_amount = bottle.collateral_amount - redeemer_sui_amount;
-            bottle.buck_amount = bottle.buck_amount - buck_amount;
-            (buck_amount, redeemer_sui_amount, 0, true)
-        }
-    }
-
-    public(friend) fun destroyable(bottle: &Bottle): bool {
+    public fun destroyable(bottle: &Bottle): bool {
         bottle.collateral_amount == 0 && bottle.buck_amount == 0
     }
 
-    public(friend) fun destroy(bottle: Bottle) {
+    public fun destroy(bottle: Bottle) {
         let Bottle { collateral_amount, buck_amount } = bottle;
         assert!(collateral_amount == 0 && buck_amount == 0, EDestroyNonEmptyBottle);
     }

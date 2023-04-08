@@ -16,31 +16,35 @@ module bucket_protocol::buck {
     use bucket_oracle::oracle::Oracle;
 
     // Constant
-
+    const SUI_MINIMAL_COLLATERAL_RATIO: u64 = 120;
     const BORROW_BASE_FEE: u64 = 5; // 0.5%
     const REDEMTION_BASE_FEE: u64 = 5; // 0.5%
 
     // Errors
     const ERepayerNoDebt: u64 = 0;
     const ENotLiquidateable: u64 = 1;
+    const EBucketAlreadyExists: u64 = 2;
 
     // Types
 
     struct BUCK has drop {}
-
-    struct BucketType<phantom T> has copy, drop, store {}
-
-    struct WellType<phantom T> has copy, drop, store {}
 
     struct BucketProtocol has key {
         id: UID,
         buck_treasury: TreasuryCap<BUCK>,
     }
 
+    struct BucketType<phantom T> has copy, drop, store {}
+
+    struct WellType<phantom T> has copy, drop, store {}
+
+    struct AdminCap has key { id: UID } // Admin can create new bucket
+
     // Init
 
     fun init(witness: BUCK, ctx: &mut TxContext) {        
         transfer::share_object(new_protocol(witness, ctx));
+        transfer::transfer( AdminCap { id: object::new(ctx) }, tx_context::sender(ctx));
     }
 
     fun new_protocol(witness: BUCK, ctx: &mut TxContext): BucketProtocol {
@@ -58,7 +62,7 @@ module bucket_protocol::buck {
         let id = object::new(ctx);
 
         // first list SUI bucket and well for sure
-        dof::add(&mut id, BucketType<SUI> {}, bucket::new<SUI>(115, ctx)); // MCR: 115%
+        dof::add(&mut id, BucketType<SUI> {}, bucket::new<SUI>(SUI_MINIMAL_COLLATERAL_RATIO, ctx));
         dof::add(&mut id, WellType<SUI> {}, well::new<SUI>(ctx));
 
         // create buck well
@@ -199,6 +203,23 @@ module bucket_protocol::buck {
 
     public fun get_well_balance<T>(protocol: &BucketProtocol): u64 {
         well::get_balance(get_well<T>(protocol))
+    }
+
+    public entry fun create_bucket<T>(
+        protocol: &mut BucketProtocol,
+        _:&AdminCap,
+        min_collateral_ratio: u64,
+        ctx: &mut TxContext,
+    ) {
+        let bucket_type = BucketType<T> {};
+        let well_type = WellType<T> {};
+        assert!(
+            !dof::exists_with_type<BucketType<T>, Bucket<T>>(&protocol.id, bucket_type) &&
+                !dof::exists_with_type<WellType<T>, Well<T>>(&protocol.id, well_type),
+            EBucketAlreadyExists,
+        );
+        dof::add(&mut protocol.id, bucket_type, bucket::new<T>(min_collateral_ratio, ctx));
+        dof::add(&mut protocol.id, well_type, well::new<T>(ctx));
     }
 
     fun get_bucket<T>(protocol: &BucketProtocol): &Bucket<T> {
