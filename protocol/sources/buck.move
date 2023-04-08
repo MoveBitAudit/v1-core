@@ -18,7 +18,7 @@ module bucket_protocol::buck {
     // Constant
 
     const BORROW_BASE_FEE: u64 = 5; // 0.5%
-    const REDEMTION_FEE: u64 = 5; // 0.5%
+    const REDEMTION_BASE_FEE: u64 = 5; // 0.5%
 
     // Errors
     const ERepayerNoDebt: u64 = 0;
@@ -35,7 +35,6 @@ module bucket_protocol::buck {
     struct BucketProtocol has key {
         id: UID,
         buck_treasury: TreasuryCap<BUCK>,
-        buck_well: Well<BUCK>,
     }
 
     // Init
@@ -61,12 +60,11 @@ module bucket_protocol::buck {
         // first list SUI bucket and well for sure
         dof::add(&mut id, BucketType<SUI> {}, bucket::new<SUI>(115, ctx)); // MCR: 115%
         dof::add(&mut id, WellType<SUI> {}, well::new<SUI>(ctx));
-        
-        BucketProtocol {
-            id,
-            buck_treasury,
-            buck_well: well::new(ctx),
-        }
+
+        // create buck well
+        dof::add(&mut id, WellType<BUCK> {}, well::new<BUCK>(ctx));
+
+        BucketProtocol { id, buck_treasury }
     } 
 
     // Functions
@@ -82,8 +80,11 @@ module bucket_protocol::buck {
         // handle collateral
         let bucket = get_bucket_mut<T>(protocol);
         bucket::handle_borrow(bucket, oracle, collateral_input, buck_output_amount, prev_debtor, ctx);
-        // mint BUCK
-        mint_buck(protocol, buck_output_amount)
+        // mint BUCK and charge borrow fee
+        let buck_output = mint_buck(protocol, buck_output_amount);
+        let fee = balance::split(&mut buck_output, buck_output_amount * BORROW_BASE_FEE / 1000);
+        well::collect_fee(get_well_mut<BUCK>(protocol), fee);
+        buck_output
     }
 
     // for testing or when small size of bottle table, O(n) time complexity
@@ -98,7 +99,10 @@ module bucket_protocol::buck {
         let bucket = get_bucket_mut<T>(protocol);
         bucket::handle_auto_borrow(bucket, oracle, collateral_input, buck_output_amount, ctx);
         // mint BUCK
-        mint_buck(protocol, buck_output_amount)
+        let buck_output = mint_buck(protocol, buck_output_amount);
+        let fee = balance::split(&mut buck_output, buck_output_amount * BORROW_BASE_FEE / 1000);
+        well::collect_fee(get_well_mut<BUCK>(protocol), fee);
+        buck_output
     }
 
     public fun repay<T>(
@@ -128,7 +132,11 @@ module bucket_protocol::buck {
         burn_buck(protocol, buck_input);
         // return Redemption
         let bucket = get_bucket_mut<T>(protocol);
-        bucket::handle_auto_redeem<T>(bucket, oracle, buck_input_amount)
+        let collateral_output = bucket::handle_auto_redeem<T>(bucket, oracle, buck_input_amount);
+        let collateral_output_amount = balance::value(&collateral_output);
+        let fee = balance::split(&mut collateral_output, collateral_output_amount * REDEMTION_BASE_FEE / 1000);
+        well::collect_fee(get_well_mut<T>(protocol), fee);
+        collateral_output
     }
 
     public fun is_liquidateable<T>(
@@ -179,6 +187,18 @@ module bucket_protocol::buck {
 
         let well = get_well_mut<T>(protocol);
         well::collect_fee(well, fee);
+    }
+
+    public fun get_bucket_size<T>(protocol: &BucketProtocol): u64 {
+        bucket::get_size(get_bucket<T>(protocol))
+    }
+
+    public fun get_bucket_balance<T>(protocol: &BucketProtocol): u64 {
+        bucket::get_balance(get_bucket<T>(protocol))
+    }
+
+    public fun get_well_balance<T>(protocol: &BucketProtocol): u64 {
+        well::get_balance(get_well<T>(protocol))
     }
 
     fun get_bucket<T>(protocol: &BucketProtocol): &Bucket<T> {
@@ -242,6 +262,7 @@ module bucket_protocol::buck {
         vector::push_back(&mut seed, borrower_count);
         let rang = test_random::new(seed);
         let rangr = &mut rang;
+        let cumulative_fee_amount = 0;
         idx = 0;
         while (idx < borrower_count) {
             let borrower = *vector::borrow(&borrowers, (idx as u64));
@@ -264,8 +285,11 @@ module bucket_protocol::buck {
                     buck_output_amount,
                     test_scenario::ctx(scenario),
                 );
-                test_utils::assert_eq(balance::value(&buck_output), buck_output_amount);
-                test_utils::assert_eq(bucket::get_size(get_bucket<SUI>(&protocol)), (idx as u64) + 1);
+                let fee_amount = buck_output_amount * BORROW_BASE_FEE / 1000;
+                cumulative_fee_amount = cumulative_fee_amount + fee_amount;
+                assert!(balance::value(&buck_output) == buck_output_amount - fee_amount, 0);
+                assert!(get_well_balance<BUCK>(&protocol) == cumulative_fee_amount, 1);
+                assert!(get_bucket_size<SUI>(&protocol) == (idx as u64) + 1, 2);
                 balance::destroy_for_testing(buck_output);
 
                 test_scenario::return_shared(protocol);

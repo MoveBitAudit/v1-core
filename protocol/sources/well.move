@@ -18,17 +18,21 @@ module bucket_protocol::well {
         info_table: TableVec<Info>,
     }
 
-    public(friend) fun collect_fee<T>(well: &mut Well<T>, input: Balance<T>) {
-        balance::join(&mut well.pool, input);
-    }
-
-    public(friend) fun new<T>(ctx: &mut TxContext): Well<T> {
+    public fun new<T>(ctx: &mut TxContext): Well<T> {
         Well {
             id: object::new(ctx),
             pool: balance::zero(),
             info_table: table_vec::empty(ctx),
         }
-    } 
+    }
+
+    public fun collect_fee<T>(well: &mut Well<T>, input: Balance<T>) {
+        balance::join(&mut well.pool, input);
+    }
+
+    public fun get_balance<T>(well: &Well<T>): u64 {
+        balance::value(&well.pool)
+    }
 
     #[test_only]
     public fun new_for_testing<T>(ctx: &mut TxContext): Well<T> {

@@ -148,6 +148,10 @@ module bucket_protocol::bucket {
         linked_table::length(&bucket.bottle_table)
     }
 
+    public fun get_balance<T>(bucket: &Bucket<T>): u64 {
+        balance::value(&bucket.vault)
+    }
+
     public fun is_liquidateable<T>(
         bucket: &Bucket<T>,
         oracle: &Oracle,
