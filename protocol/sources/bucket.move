@@ -87,28 +87,28 @@ module bucket_protocol::bucket {
         oracle: &BucketOracle,
         buck_input_amount: u64,
     ): Balance<T> {
-        let remain_buck_amount = buck_input_amount;
         let (price, denominator) = oracle::get_price<T>(oracle);
         let bottle_table = &mut bucket.bottle_table;
         let collateral_output = balance::zero();
-        while(remain_buck_amount > 0 && linked_table::length(bottle_table) > 0) {
+        while(buck_input_amount > 0 && linked_table::length(bottle_table) > 0) {
             let (debtor, bottle) = linked_table::pop_front(bottle_table);
             let bottle_buck_amount = get_buck_amount(&bottle);
-            if (remain_buck_amount >= bottle_buck_amount) {
+            if (buck_input_amount >= bottle_buck_amount) {
                 let redeemed_amount = bottle::record_redeem(&mut bottle, price, denominator, bottle_buck_amount);
                 balance::join(&mut collateral_output, balance::split(&mut bucket.vault, redeemed_amount));
-                remain_buck_amount = remain_buck_amount - bottle_buck_amount;
                 linked_table::push_back(bottle_table, debtor, bottle);
+                buck_input_amount = buck_input_amount - bottle_buck_amount;
             } else {
-                let redeemed_amount = bottle::record_redeem(&mut bottle, price, denominator, remain_buck_amount);
+                let redeemed_amount = bottle::record_redeem(&mut bottle, price, denominator, buck_input_amount);
                 balance::join(&mut collateral_output, balance::split(&mut bucket.vault, redeemed_amount));
                 let prev_debtor = find_valid_insertion(bottle_table, &bottle, option::none());
                 linked_table::insert_back(bottle_table, prev_debtor, debtor, bottle);
+                buck_input_amount = 0;
                 break
             };
         };
 
-        assert!(remain_buck_amount == 0, ENotEnoughToRedeem);
+        assert!(buck_input_amount == 0, ENotEnoughToRedeem);
         collateral_output
     }
 
