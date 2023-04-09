@@ -11,6 +11,7 @@ module bucket_protocol::buck {
     use sui::dynamic_object_field as dof;
     use std::option::{Self, Option};
 
+    use bucket_framework::math::mul_factor;
     use bucket_protocol::well::{Self, Well};
     use bucket_protocol::bucket::{Self, Bucket, FlashRecipit};
     use bucket_oracle::oracle::BucketOracle;
@@ -86,7 +87,8 @@ module bucket_protocol::buck {
         bucket::handle_borrow(bucket, oracle, collateral_input, buck_output_amount, prev_debtor, ctx);
         // mint BUCK and charge borrow fee
         let buck_output = mint_buck(protocol, buck_output_amount);
-        let fee = balance::split(&mut buck_output, buck_output_amount * BORROW_BASE_FEE / 1000);
+        let fee_amount = mul_factor(buck_output_amount, BORROW_BASE_FEE, 1000);
+        let fee = balance::split(&mut buck_output, fee_amount);
         well::collect_fee(get_well_mut<BUCK>(protocol), fee);
         buck_output
     }
@@ -104,7 +106,8 @@ module bucket_protocol::buck {
         bucket::handle_auto_borrow(bucket, oracle, collateral_input, buck_output_amount, ctx);
         // mint BUCK
         let buck_output = mint_buck(protocol, buck_output_amount);
-        let fee = balance::split(&mut buck_output, buck_output_amount * BORROW_BASE_FEE / 1000);
+        let fee_amount = mul_factor(buck_output_amount, BORROW_BASE_FEE, 1000);
+        let fee = balance::split(&mut buck_output, fee_amount);
         well::collect_fee(get_well_mut<BUCK>(protocol), fee);
         buck_output
     }
@@ -138,7 +141,8 @@ module bucket_protocol::buck {
         let bucket = get_bucket_mut<T>(protocol);
         let collateral_output = bucket::handle_auto_redeem<T>(bucket, oracle, buck_input_amount);
         let collateral_output_amount = balance::value(&collateral_output);
-        let fee = balance::split(&mut collateral_output, collateral_output_amount * REDEMTION_BASE_FEE / 1000);
+        let fee_amount = mul_factor(collateral_output_amount, REDEMTION_BASE_FEE, 1000);
+        let fee = balance::split(&mut collateral_output, fee_amount);
         well::collect_fee(get_well_mut<T>(protocol), fee);
         collateral_output
     }
@@ -306,7 +310,7 @@ module bucket_protocol::buck {
                     buck_output_amount,
                     test_scenario::ctx(scenario),
                 );
-                let fee_amount = buck_output_amount * BORROW_BASE_FEE / 1000;
+                let fee_amount = mul_factor(buck_output_amount, BORROW_BASE_FEE, 1000);
                 cumulative_fee_amount = cumulative_fee_amount + fee_amount;
                 assert!(balance::value(&buck_output) == buck_output_amount - fee_amount, 0);
                 assert!(get_well_balance<BUCK>(&protocol) == cumulative_fee_amount, 1);

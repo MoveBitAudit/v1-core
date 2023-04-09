@@ -6,6 +6,7 @@ module bucket_protocol::test_redeem {
     use sui::sui::SUI;
     use sui::test_utils;
     use std::debug;
+    use bucket_framework::math::mul_factor;
     use bucket_protocol::buck::{Self, BUCK, BucketProtocol};
     use bucket_oracle::oracle::{Self, BucketOracle, AdminCap};
 
@@ -31,7 +32,7 @@ module bucket_protocol::test_redeem {
             let sui_input = balance::create_for_testing<SUI>(sui_input_amount);
             let buck_output = buck::auto_borrow(&mut protocol, &oracle, sui_input, buck_output_amount, test_scenario::ctx(scenario));
             debug::print(&buck_output);
-            test_utils::assert_eq(balance::value(&buck_output), buck_output_amount * 995 / 1000);
+            test_utils::assert_eq(balance::value(&buck_output), mul_factor(buck_output_amount,995, 1000));
             balance::destroy_for_testing(buck_output);
         };
 
@@ -42,8 +43,8 @@ module bucket_protocol::test_redeem {
             let buck_input = balance::create_for_testing<BUCK>(buck_for_redemption_amount);
             let sui_output = buck::auto_redeem<SUI>(&mut protocol, &oracle, buck_input);
             debug::print(&sui_output);
-            let sui_value = balance::value(&sui_output) * price / denominator;
-            test_utils::assert_eq(sui_value, buck_for_redemption_amount * 995 / 1000);
+            let sui_value = mul_factor(balance::value(&sui_output), price, denominator);
+            test_utils::assert_eq(sui_value, mul_factor(buck_for_redemption_amount, 995, 1000));
             balance::destroy_for_testing(sui_output);
         };
 

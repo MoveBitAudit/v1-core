@@ -2,6 +2,7 @@ module bucket_protocol::bottle {
 
     use std::option::{Self, Option};
     use bucket_framework::linked_table::{Self, LinkedTable};
+    use bucket_framework::math::mul_factor;
 
     friend bucket_protocol::bucket;
 
@@ -60,7 +61,7 @@ module bucket_protocol::bottle {
         bottle.collateral_amount = bottle.collateral_amount + collateral_amount;
         bottle.buck_amount = bottle.buck_amount + expected_buck_amount;
 
-        let collateral_value = bottle.collateral_amount * price / denominator;
+        let collateral_value = mul_factor(bottle.collateral_amount, price, denominator);
         assert!(collateral_value * 100 > min_collateral_ratio * bottle.buck_amount, ECollateralRatioTooLow);
     }
 
@@ -72,7 +73,7 @@ module bucket_protocol::bottle {
             // fully repaid
             (true, return_sui_amount)
         } else {
-            let return_sui_amount = bottle.collateral_amount * repay_amount / bottle.buck_amount;
+            let return_sui_amount = mul_factor(bottle.collateral_amount, repay_amount, bottle.buck_amount);
             bottle.collateral_amount = bottle.collateral_amount - return_sui_amount;
             bottle.buck_amount = bottle.buck_amount - repay_amount;
             // not fully repaid
@@ -86,7 +87,7 @@ module bucket_protocol::bottle {
         denominator: u64,
         buck_amount: u64,
     ): u64 {
-        let redeemed_amount = buck_amount * denominator / price;
+        let redeemed_amount = mul_factor(buck_amount,denominator, price);
         assert!(bottle.collateral_amount >= redeemed_amount, ECannotRedeemFromBottle);
         bottle.collateral_amount = bottle.collateral_amount - redeemed_amount;
         bottle.buck_amount = bottle.buck_amount - buck_amount;
@@ -125,7 +126,7 @@ module bucket_protocol::bottle {
             std::debug::print(&0);
         }
         else {
-            std::debug::print(&(100*bottle.collateral_amount / bottle.buck_amount));
+            std::debug::print(&(mul_factor(bottle.collateral_amount, 100, bottle.buck_amount)));
         };
         std::debug::print(bottle);
     }

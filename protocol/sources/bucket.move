@@ -6,6 +6,7 @@ module bucket_protocol::bucket {
     use std::option::{Self, Option};
 
     use bucket_framework::linked_table::{Self, LinkedTable};
+    use bucket_framework::math::mul_factor;
     use bucket_oracle::oracle::{Self, BucketOracle};
     use bucket_protocol::bottle::{Self, Bottle, get_buck_amount};
 
@@ -160,8 +161,8 @@ module bucket_protocol::bucket {
         let (price, denominator) = oracle::get_price<T>(oracle);
         assert!(debt_exists(bucket, debtor), EBottleNotFound);
         let (bottle_collateral_amount, bottle_buck_amount) = get_bottle_info(bucket, debtor);
-        bottle_collateral_amount * price / denominator <=
-            bottle_buck_amount * bucket.min_collateral_ratio / 100
+        mul_factor(bottle_collateral_amount, price, denominator) <=
+            mul_factor(bottle_buck_amount, bucket.min_collateral_ratio, 100)
     }
 
     fun borrow_internal<T>(
