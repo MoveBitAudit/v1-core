@@ -13,7 +13,7 @@ module bucket_protocol::buck {
 
     use bucket_protocol::well::{Self, Well};
     use bucket_protocol::bucket::{Self, Bucket, FlashRecipit};
-    use bucket_oracle::oracle::Oracle;
+    use bucket_oracle::oracle::BucketOracle;
 
     // Constant
     const SUI_MINIMAL_COLLATERAL_RATIO: u64 = 120;
@@ -75,7 +75,7 @@ module bucket_protocol::buck {
 
     public fun borrow<T>(
         protocol: &mut BucketProtocol,
-        oracle: &Oracle,
+        oracle: &BucketOracle,
         collateral_input: Balance<T>,
         buck_output_amount: u64,
         prev_debtor: Option<address>,
@@ -94,7 +94,7 @@ module bucket_protocol::buck {
     // for testing or when small size of bottle table, O(n) time complexity
     public fun auto_borrow<T>(
         protocol: &mut BucketProtocol,
-        oracle: &Oracle,
+        oracle: &BucketOracle,
         collateral_input: Balance<T>,
         buck_output_amount: u64,
         ctx: &TxContext,
@@ -127,7 +127,7 @@ module bucket_protocol::buck {
 
     public fun auto_redeem<T>(
         protocol: &mut BucketProtocol,
-        oracle: &Oracle,
+        oracle: &BucketOracle,
         buck_input: Balance<BUCK>,
     ): Balance<T> {
         let buck_input_amount = balance::value(&buck_input);
@@ -145,7 +145,7 @@ module bucket_protocol::buck {
 
     public fun is_liquidateable<T>(
         protocol: &BucketProtocol,
-        oracle: &Oracle,
+        oracle: &BucketOracle,
         debtor: address
     ): bool {
         let bucket = get_bucket<T>(protocol);
@@ -154,7 +154,7 @@ module bucket_protocol::buck {
 
     public fun liquidate<T>(
         protocol: &mut BucketProtocol,
-        oracle: &Oracle,
+        oracle: &BucketOracle,
         buck_input: Balance<BUCK>,
         debtor: address,
     ): Balance<T> {
@@ -255,7 +255,7 @@ module bucket_protocol::buck {
     use bucket_oracle::oracle;
 
     #[test]
-    fun test_borrow(): (Oracle, oracle::AdminCap) {
+    fun test_borrow(): (BucketOracle, oracle::AdminCap) {
         use sui::test_scenario;
         use sui::test_utils;
         use sui::test_random;

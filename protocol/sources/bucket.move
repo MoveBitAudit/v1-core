@@ -6,7 +6,7 @@ module bucket_protocol::bucket {
     use std::option::{Self, Option};
 
     use bucket_framework::linked_table::{Self, LinkedTable};
-    use bucket_oracle::oracle::{Self, Oracle};
+    use bucket_oracle::oracle::{Self, BucketOracle};
     use bucket_protocol::bottle::{Self, Bottle, get_buck_amount};
 
     friend bucket_protocol::buck;
@@ -44,7 +44,7 @@ module bucket_protocol::bucket {
 
     public(friend) fun handle_borrow<T>(
         bucket: &mut Bucket<T>,
-        oracle: &Oracle,
+        oracle: &BucketOracle,
         collateral_input: Balance<T>,
         buck_output_amount: u64,
         prev_debtor: Option<address>,
@@ -57,7 +57,7 @@ module bucket_protocol::bucket {
 
     public(friend) fun handle_auto_borrow<T>(
         bucket: &mut Bucket<T>,
-        oracle: &Oracle,
+        oracle: &BucketOracle,
         collateral_input: Balance<T>,
         buck_output_amount: u64,
         ctx: &TxContext,
@@ -84,7 +84,7 @@ module bucket_protocol::bucket {
 
     public(friend) fun handle_auto_redeem<T>(
         bucket: &mut Bucket<T>,
-        oracle: &Oracle,
+        oracle: &BucketOracle,
         buck_input_amount: u64,
     ): Balance<T> {
         let remain_buck_amount = buck_input_amount;
@@ -154,7 +154,7 @@ module bucket_protocol::bucket {
 
     public fun is_liquidateable<T>(
         bucket: &Bucket<T>,
-        oracle: &Oracle,
+        oracle: &BucketOracle,
         debtor: address,
     ): bool {
         let (price, denominator) = oracle::get_price<T>(oracle);
@@ -166,7 +166,7 @@ module bucket_protocol::bucket {
 
     fun borrow_internal<T>(
         bucket: &mut Bucket<T>,
-        oracle: &Oracle,
+        oracle: &BucketOracle,
         borrower: address,
         collateral_input: Balance<T>,
         buck_output_amount: u64,
