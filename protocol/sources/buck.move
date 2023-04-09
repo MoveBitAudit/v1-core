@@ -51,7 +51,7 @@ module bucket_protocol::buck {
     fun new_protocol(witness: BUCK, ctx: &mut TxContext): BucketProtocol {
         let (buck_treasury, buck_metadata) = coin::create_currency(
             witness,
-            8,
+            9,
             b"BUCK",
             b"Bucket USD",
             b"stable coin minted by bucketprotocol.io",

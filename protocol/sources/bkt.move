@@ -7,7 +7,7 @@ module bucket_protocol::bkt {
     use sui::object::{Self, UID};
     use sui::balance::Balance;
 
-    const BKT_TOTAL_SUPPLY: u64 = 100000000000000;
+    const BKT_TOTAL_SUPPLY: u64 = 1000000000000000;
 
     struct BKT has drop {}
 
@@ -19,7 +19,7 @@ module bucket_protocol::bkt {
     fun init(witness: BKT, ctx: &mut TxContext) {
         let (bkt_treasury, bkt_metadata) = coin::create_currency(
             witness,
-            8,
+            9,
             b"BKT",
             b"Bucket Coin",
             b"incentive token minted by bucketprotocol.io",
