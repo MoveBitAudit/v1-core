@@ -28,9 +28,9 @@ $BKT serve as an incentive token in Bucket Protocol. Anyone who makes the protoc
 ## Testnet
 Package ID
 ```
-0x46589041d7e75ba7362d0c158563b4fa7047af60a7e4936d9904ac28a24b4993
+0x74dfd5e2cac60a19316884a3a4cdc88f7a946852f9d7de6a3846afe7de539994
 ```
 Bucket Protocol ID
 ```
-0x160f163732ffff4bc10ee30fcc4c8c1a554f264880bf8575528ddf450c6229f9
+0xa7abebdd5042e01d5f4143ea279bb6b8752524c2b906d98e1d1a65a1a138d5bd
 ```
