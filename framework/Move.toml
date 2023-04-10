@@ -1,11 +1,10 @@
 [package]
 name = "BucketFramework"
 version = "0.0.1"
-published-at = "0x652a9d9fcc98946b0afa073edbbd2d0170b579e4ac9b64628bd1402da721e4ce"
 
 [dependencies]
 Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "testnet" }
 
 [addresses]
-bucket_framework = "0x652a9d9fcc98946b0afa073edbbd2d0170b579e4ac9b64628bd1402da721e4ce"
+bucket_framework = "0x0"
 sui = "0000000000000000000000000000000000000000000000000000000000000002"
