@@ -49,10 +49,10 @@ module bucket_protocol::bucket {
         collateral_input: Balance<T>,
         buck_output_amount: u64,
         prev_debtor: Option<address>,
-        ctx: &TxContext,
+        ctx: &mut TxContext,
     ) {
         let borrower = tx_context::sender(ctx);
-        let bottle = borrow_internal(bucket, oracle, borrower, collateral_input, buck_output_amount);
+        let bottle = borrow_internal(bucket, oracle, borrower, collateral_input, buck_output_amount, ctx);
         bottle::insert_bottle(&mut bucket.bottle_table, borrower, bottle, prev_debtor);
     }
 
@@ -61,10 +61,10 @@ module bucket_protocol::bucket {
         oracle: &BucketOracle,
         collateral_input: Balance<T>,
         buck_output_amount: u64,
-        ctx: &TxContext,
+        ctx: &mut TxContext,
     ) {
         let borrower = tx_context::sender(ctx);
-        let bottle = borrow_internal(bucket, oracle, borrower, collateral_input, buck_output_amount);
+        let bottle = borrow_internal(bucket, oracle, borrower, collateral_input, buck_output_amount, ctx);
         let prev_debtor = find_valid_insertion(&bucket.bottle_table, &bottle, option::none());
         linked_table::insert_back(&mut bucket.bottle_table, prev_debtor, borrower, bottle);
     }
@@ -171,12 +171,13 @@ module bucket_protocol::bucket {
         borrower: address,
         collateral_input: Balance<T>,
         buck_output_amount: u64,
+        ctx: &mut TxContext,
     ): Bottle {
         assert!(!bucket.flash_lock, EBucketLocked);
         let bottle = if(linked_table::contains(&bucket.bottle_table, borrower)) {
             linked_table::remove(&mut bucket.bottle_table, borrower)
         } else {
-            bottle::new()
+            bottle::new(ctx)
         };
 
         let collateral_amount = balance::value(&collateral_input);

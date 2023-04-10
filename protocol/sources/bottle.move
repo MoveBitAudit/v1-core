@@ -3,6 +3,8 @@ module bucket_protocol::bottle {
     use std::option::{Self, Option};
     use bucket_framework::linked_table::{Self, LinkedTable};
     use bucket_framework::math::mul_factor;
+    use sui::object::{Self, UID};
+    use sui::tx_context::TxContext;
 
     friend bucket_protocol::bucket;
 
@@ -11,13 +13,14 @@ module bucket_protocol::bottle {
     const ECannotRedeemFromBottle: u64 = 2;
     const EDestroyNonEmptyBottle: u64 = 3;
 
-    struct Bottle has store {
+    struct Bottle has store, key {
+        id: UID,
         collateral_amount: u64,
         buck_amount: u64,
     }
 
-    public(friend) fun new(): Bottle {
-        Bottle { collateral_amount: 0, buck_amount: 0 }
+    public(friend) fun new(ctx: &mut TxContext): Bottle {
+        Bottle { id: object::new(ctx), collateral_amount: 0, buck_amount: 0 }
     }
 
     public(friend) fun insert_bottle(
@@ -99,8 +102,9 @@ module bucket_protocol::bottle {
     }
 
     public fun destroy(bottle: Bottle) {
-        let Bottle { collateral_amount, buck_amount } = bottle;
+        let Bottle { id, collateral_amount, buck_amount } = bottle;
         assert!(collateral_amount == 0 && buck_amount == 0, EDestroyNonEmptyBottle);
+        object::delete(id);
     }
 
     public fun get_collateral_amount(bottle: &Bottle): u64 {

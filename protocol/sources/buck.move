@@ -80,7 +80,7 @@ module bucket_protocol::buck {
         collateral_input: Balance<T>,
         buck_output_amount: u64,
         prev_debtor: Option<address>,
-        ctx: &TxContext,
+        ctx: &mut TxContext,
     ): Balance<BUCK> {
         // handle collateral
         let bucket = get_bucket_mut<T>(protocol);
@@ -99,7 +99,7 @@ module bucket_protocol::buck {
         oracle: &BucketOracle,
         collateral_input: Balance<T>,
         buck_output_amount: u64,
-        ctx: &TxContext,
+        ctx: &mut TxContext,
     ): Balance<BUCK> {
         // handle collateral
         let bucket = get_bucket_mut<T>(protocol);

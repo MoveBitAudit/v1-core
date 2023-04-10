@@ -1,7 +1,7 @@
 [package]
 name = "BucketProtocol"
 version = "0.0.1"
-published-at = "0x46589041d7e75ba7362d0c158563b4fa7047af60a7e4936d9904ac28a24b4993"
+published-at = "0x74dfd5e2cac60a19316884a3a4cdc88f7a946852f9d7de6a3846afe7de539994"
 
 [dependencies]
 Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "testnet" }
@@ -9,5 +9,5 @@ BucketOracle = { git = "https://github.com/Bucket-Protocol/oracle.git", rev = "m
 BucketFramework = { local = "../framework" }
 
 [addresses]
-bucket_protocol = "0x46589041d7e75ba7362d0c158563b4fa7047af60a7e4936d9904ac28a24b4993"
+bucket_protocol = "0x74dfd5e2cac60a19316884a3a4cdc88f7a946852f9d7de6a3846afe7de539994"
 sui = "0000000000000000000000000000000000000000000000000000000000000002"
