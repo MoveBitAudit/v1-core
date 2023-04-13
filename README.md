@@ -1,5 +1,5 @@
 # Bucket Protocol
-Zero-interest lending protocol on Sui, borrowing stable-coin against $SUI.
+Zero-interest lending protocol on Sui, borrowing decentralized stable-coin against $SUI.
 
 ## Mechanism
 1. Deposit $SUI as collateral and borrow $BUCK with minimal collateral ratio 115%
@@ -34,3 +34,22 @@ Bucket Protocol ID
 ```
 0xa7abebdd5042e01d5f4143ea279bb6b8752524c2b906d98e1d1a65a1a138d5bd
 ```
+
+## Modules
+#### buck
+1. Assemble other modules
+2. Burn and mint $BUCK
+#### bucket
+1. Handle collateral when borrow, repay and redeem
+2. Sort debtor positions by collateral ratio
+#### bottle
+1. Record debtor positions
+#### tank
+1. Hold deposited $BUCK for liquidation
+2. Distribute collateral to $BUCK depositers after liquidation
+#### bkt
+1. $BKT token distribution 
+2. Reward tank depositors and SUI/BUCK liquidity providers with $BKT
+#### well
+1. Collect fee from borrowing, redemption and flash loan
+2. Distribute fee to $BKT staker
