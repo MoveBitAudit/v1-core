@@ -12,10 +12,10 @@ module bucket_protocol::buck {
     use std::option::{Self, Option};
 
     use bucket_framework::math::mul_factor;
-    use bucket_protocol::well::{Self, Well};
+    use bucket_protocol::well::{Self, Well, WellToken};
     use bucket_protocol::bucket::{Self, Bucket, FlashRecipit};
     use bucket_protocol::tank::{Self, Tank};
-    // use bucket_protocol::bkt::{Self, BKT, BktTreasury};
+    use bucket_protocol::bkt::BKT;
     use bucket_oracle::oracle::BucketOracle;
 
     // Constant
@@ -176,7 +176,7 @@ module bucket_protocol::buck {
         let rebate = balance::split(&mut collateral_return, rebate_amount);
 
         // absorb debt
-        assert!(tank::get_tank_reserve(tank) > buck_amount, ETankNotEnough);
+        assert!(tank::get_reserve_amount(tank) > buck_amount, ETankNotEnough);
         let buck_to_burn = tank::absorb(tank, collateral_return, buck_amount);
 
         // burn BUCK
@@ -194,7 +194,7 @@ module bucket_protocol::buck {
     ): Balance<T> {
         assert!(is_liquidateable<T>(protocol, oracle, debtor), ENotLiquidateable);
         let (_, buck_amount) = get_bottle_info<T>(protocol, debtor);
-        assert!(tank::get_tank_reserve(tank) <= buck_amount, ETankNotEnough);
+        assert!(tank::get_reserve_amount(tank) <= buck_amount, ETankNotEnough);
         let buck_input_amount = balance::value(&buck_input);
 
         // burn BUCK
@@ -222,6 +222,31 @@ module bucket_protocol::buck {
 
         let well = get_well_mut<T>(protocol);
         well::collect_fee(well, fee);
+    }
+
+    public fun stake<T>(
+        protocol: &mut BucketProtocol,
+        bkt_input: Balance<BKT>,
+        ctx: &mut TxContext,
+    ): WellToken<T> {
+        let well = get_well_mut<T>(protocol);
+        well::stake(well, bkt_input, ctx)
+    }
+
+    public fun unstake<T>(
+        protocol: &mut BucketProtocol,
+        well_token: WellToken<T>,
+    ): (Balance<BKT>, Balance<T>) {
+        let well = get_well_mut<T>(protocol);
+        well::unstake(well, well_token)
+    }
+
+    public fun claim<T>(
+        protocol: &mut BucketProtocol,
+        well_token: &mut WellToken<T>,
+    ): Balance<T> {
+        let well = get_well_mut<T>(protocol);
+        well::claim(well, well_token)
     }
 
     public fun get_bottle_info<T>(protocol: &BucketProtocol, debtor: address): (u64, u64) {

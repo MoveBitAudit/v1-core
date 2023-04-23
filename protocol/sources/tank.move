@@ -11,15 +11,15 @@ module bucket_protocol::tank {
 
     const BKT_FACTOR: u64 = 1000000;
 
-    struct Tank<phantom T, phantom Q> has store, key {
+    struct Tank<phantom BUCK, phantom T> has store, key {
         id: UID,
-        reserve: Balance<T>,
-        liquidated: Balance<Q>,
+        reserve: Balance<BUCK>,
+        liquidated: Balance<T>,
         current_p: u64,
         current_s: u64,
     }
 
-    struct TankToken<phantom T, phantom Q> has store, key {
+    struct TankToken<phantom BUCK, phantom T> has store, key {
         id: UID,
         deposit_amount: u64,
         start_p: u64,
@@ -27,7 +27,7 @@ module bucket_protocol::tank {
         latest_claim_time: u64,
     }
 
-    public(friend) fun new<T, Q>(ctx: &mut TxContext): Tank<T, Q> {
+    public(friend) fun new<BUCK, T>(ctx: &mut TxContext): Tank<BUCK, T> {
         Tank {
             id: object::new(ctx),
             reserve: balance::zero(),
@@ -37,12 +37,12 @@ module bucket_protocol::tank {
         }
     }
 
-    public fun deposit<T, Q>(
+    public fun deposit<BUCK, T>(
         clock: &Clock,
-        tank: &mut Tank<T, Q>,
-        deposit_input: Balance<T>,
+        tank: &mut Tank<BUCK, T>,
+        deposit_input: Balance<BUCK>,
         ctx: &mut TxContext,
-    ): TankToken<T, Q> {
+    ): TankToken<BUCK, T> {
         let deposit_amount = balance::value(&deposit_input);
         balance::join(&mut tank.reserve, deposit_input);
         TankToken {
@@ -54,11 +54,11 @@ module bucket_protocol::tank {
         }        
     }
 
-    public(friend) fun absorb<T, Q>(
-        tank: &mut Tank<T, Q>,
-        collateral_input: Balance<Q>,
+    public(friend) fun absorb<BUCK, T>(
+        tank: &mut Tank<BUCK, T>,
+        collateral_input: Balance<T>,
         debt_amount: u64,
-    ): Balance<T> {
+    ): Balance<BUCK> {
         let collateral_amount = balance::value(&collateral_input);
         let tank_reserve_amount = balance::value(&tank.reserve);
         tank.current_s = tank.current_s + mul_factor(
@@ -75,12 +75,12 @@ module bucket_protocol::tank {
         balance::split(&mut tank.reserve, debt_amount)
     }
 
-    public fun withdraw<T, Q>(
+    public fun withdraw<BUCK, T>(
         clock: &Clock,
-        tank: &mut Tank<T, Q>,
+        tank: &mut Tank<BUCK, T>,
         bkt_treasury: &mut BktTreasury,
-        tank_token: TankToken<T, Q>,
-    ): (Balance<T>, Balance<Q>, Balance<BKT>) {
+        tank_token: TankToken<BUCK, T>,
+    ): (Balance<BUCK>, Balance<T>, Balance<BKT>) {
         let TankToken { id, deposit_amount, start_p, start_s, latest_claim_time } = tank_token;
         object::delete(id);
 
@@ -106,10 +106,10 @@ module bucket_protocol::tank {
         )
     }
 
-    public fun claim<T, Q>(
+    public fun claim<BUCK, T>(
         clock: &Clock,
         bkt_treasury: &mut BktTreasury,
-        tank_token: &mut TankToken<T, Q>,
+        tank_token: &mut TankToken<BUCK, T>,
     ): Balance<BKT> {
         let current_timestamp = clock::timestamp_ms(clock);
         let bkt_output_amount = mul_factor(
@@ -121,7 +121,7 @@ module bucket_protocol::tank {
         bkt::claim(bkt_treasury, bkt_output_amount)
     }
 
-    public fun get_tank_reserve<T, Q>(tank: &Tank<T, Q>): u64 {
+    public fun get_reserve_amount<BUCK, T>(tank: &Tank<BUCK, T>): u64 {
         balance::value(&tank.reserve)
     }
 }
