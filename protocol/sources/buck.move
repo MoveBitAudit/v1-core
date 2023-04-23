@@ -14,17 +14,21 @@ module bucket_protocol::buck {
     use bucket_framework::math::mul_factor;
     use bucket_protocol::well::{Self, Well};
     use bucket_protocol::bucket::{Self, Bucket, FlashRecipit};
+    use bucket_protocol::tank::{Self, Tank};
+    // use bucket_protocol::bkt::{Self, BKT, BktTreasury};
     use bucket_oracle::oracle::BucketOracle;
 
     // Constant
-    const SUI_MINIMAL_COLLATERAL_RATIO: u64 = 120;
     const BORROW_BASE_FEE: u64 = 5; // 0.5%
     const REDEMTION_BASE_FEE: u64 = 5; // 0.5%
+    const LIQUIDATION_REBATE: u64 = 5; // 0.5%
 
     // Errors
-    const ERepayerNoDebt: u64 = 0;
-    const ENotLiquidateable: u64 = 1;
-    const EBucketAlreadyExists: u64 = 2;
+    const EBorrowTooSmall: u64 = 0;
+    const ERepayerNoDebt: u64 = 1;
+    const ENotLiquidateable: u64 = 2;
+    const EBucketAlreadyExists: u64 = 3;
+    const ETankNotEnough: u64 = 4;
 
     // Types
 
@@ -32,7 +36,7 @@ module bucket_protocol::buck {
 
     struct BucketProtocol has key {
         id: UID,
-        buck_treasury: TreasuryCap<BUCK>,
+        buck_treasury_cap: TreasuryCap<BUCK>,
     }
 
     struct BucketType<phantom T> has copy, drop, store {}
@@ -45,31 +49,33 @@ module bucket_protocol::buck {
 
     fun init(witness: BUCK, ctx: &mut TxContext) {        
         transfer::share_object(new_protocol(witness, ctx));
-        transfer::transfer( AdminCap { id: object::new(ctx) }, tx_context::sender(ctx));
+        transfer::transfer(AdminCap { id: object::new(ctx) }, tx_context::sender(ctx));
     }
 
     fun new_protocol(witness: BUCK, ctx: &mut TxContext): BucketProtocol {
-        let (buck_treasury, buck_metadata) = coin::create_currency(
+        let (buck_treasury_cap, buck_metadata) = coin::create_currency(
             witness,
             9,
             b"BUCK",
             b"Bucket USD",
             b"stable coin minted by bucketprotocol.io",
-            option::none(),
+            option::some(url::new_unsafe_from_bytes(
+                b"https://ipfs.io/ipfs/QmTgFBXPfTHj3Ao4MjZ3JhaDbZQBpSMiNwksQ1xUT3yhZX")
+            ),
             ctx,
         );
 
         transfer::public_freeze_object(buck_metadata);
         let id = object::new(ctx);
 
-        // first list SUI bucket and well for sure
-        dof::add(&mut id, BucketType<SUI> {}, bucket::new<SUI>(SUI_MINIMAL_COLLATERAL_RATIO, ctx));
+        // create SUI bucket
+        dof::add(&mut id, BucketType<SUI> {}, bucket::new<SUI>(110, ctx));
+
+        // create wells for SUI and BUCK
+        dof::add(&mut id, WellType<BUCK> {}, well::new<BUCK>(ctx));
         dof::add(&mut id, WellType<SUI> {}, well::new<SUI>(ctx));
 
-        // create buck well
-        dof::add(&mut id, WellType<BUCK> {}, well::new<BUCK>(ctx));
-
-        BucketProtocol { id, buck_treasury }
+        BucketProtocol { id, buck_treasury_cap }
     } 
 
     // Functions
@@ -156,13 +162,39 @@ module bucket_protocol::buck {
         bucket::is_liquidateable<T>(bucket, oracle, debtor)
     }
 
+    public fun liquidate_with_tank<T>(
+        protocol: &mut BucketProtocol,
+        oracle: &BucketOracle,
+        tank: &mut Tank<BUCK, T>,
+        debtor: address,
+    ): Balance<T> {
+        assert!(is_liquidateable<T>(protocol, oracle, debtor), ENotLiquidateable);
+        let bucket = get_bucket_mut<T>(protocol);
+        let (collateral_amount, buck_amount) = bucket::get_bottle_info(bucket, debtor);
+        let collateral_return = bucket::handle_repay<T>(bucket, debtor, buck_amount);
+        let rebate_amount = mul_factor(collateral_amount, LIQUIDATION_REBATE, 1000);
+        let rebate = balance::split(&mut collateral_return, rebate_amount);
+
+        // absorb debt
+        assert!(tank::get_tank_reserve(tank) > buck_amount, ETankNotEnough);
+        let buck_to_burn = tank::absorb(tank, collateral_return, buck_amount);
+
+        // burn BUCK
+        burn_buck(protocol, buck_to_burn);
+        // return rebate
+        rebate
+    }
+
     public fun liquidate<T>(
         protocol: &mut BucketProtocol,
         oracle: &BucketOracle,
+        tank: &Tank<BUCK, T>,
         buck_input: Balance<BUCK>,
         debtor: address,
     ): Balance<T> {
         assert!(is_liquidateable<T>(protocol, oracle, debtor), ENotLiquidateable);
+        let (_, buck_amount) = get_bottle_info<T>(protocol, debtor);
+        assert!(tank::get_tank_reserve(tank) <= buck_amount, ETankNotEnough);
         let buck_input_amount = balance::value(&buck_input);
 
         // burn BUCK
@@ -170,11 +202,6 @@ module bucket_protocol::buck {
         // return collateral
         let bucket = get_bucket_mut<T>(protocol);
         bucket::handle_repay<T>(bucket, debtor, buck_input_amount)
-    }
-
-    public fun get_bottle_info<T>(protocol: &BucketProtocol, debtor: address): (u64, u64) {
-        let bucket = get_bucket<T>(protocol);
-        bucket::get_bottle_info(bucket, debtor)
     }
 
     public fun flash_borrow<T>(
@@ -195,6 +222,11 @@ module bucket_protocol::buck {
 
         let well = get_well_mut<T>(protocol);
         well::collect_fee(well, fee);
+    }
+
+    public fun get_bottle_info<T>(protocol: &BucketProtocol, debtor: address): (u64, u64) {
+        let bucket = get_bucket<T>(protocol);
+        bucket::get_bottle_info(bucket, debtor)
     }
 
     public fun get_bucket_size<T>(protocol: &BucketProtocol): u64 {
@@ -224,6 +256,7 @@ module bucket_protocol::buck {
         );
         dof::add(&mut protocol.id, bucket_type, bucket::new<T>(min_collateral_ratio, ctx));
         dof::add(&mut protocol.id, well_type, well::new<T>(ctx));
+        transfer::public_share_object(tank::new<BUCK, T>(ctx));
     }
 
     fun get_bucket<T>(protocol: &BucketProtocol): &Bucket<T> {
@@ -243,11 +276,11 @@ module bucket_protocol::buck {
     }
 
     fun mint_buck(protocol: &mut BucketProtocol, buck_amount: u64): Balance<BUCK> {
-        coin::mint_balance(&mut protocol.buck_treasury, buck_amount)
+        coin::mint_balance(&mut protocol.buck_treasury_cap, buck_amount)
     }
 
     fun burn_buck(protocol: &mut BucketProtocol, buck: Balance<BUCK>) {
-        balance::decrease_supply(coin::supply_mut(&mut protocol.buck_treasury), buck);
+        balance::decrease_supply(coin::supply_mut(&mut protocol.buck_treasury_cap), buck);
     }
 
     #[test_only]
@@ -257,6 +290,7 @@ module bucket_protocol::buck {
 
     #[test_only]
     use bucket_oracle::oracle;
+    use sui::url;
 
     #[test]
     fun test_borrow(): (BucketOracle, oracle::AdminCap) {

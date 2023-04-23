@@ -12,6 +12,9 @@ module bucket_protocol::bottle {
     const ECollateralRatioTooLow: u64 = 1;
     const ECannotRedeemFromBottle: u64 = 2;
     const EDestroyNonEmptyBottle: u64 = 3;
+    const EBottleTooSmall: u64 = 4;
+
+    const MINIMAL_BOTTLE_SIZE: u64 = 500;
 
     struct Bottle has store, key {
         id: UID,
@@ -66,6 +69,7 @@ module bucket_protocol::bottle {
 
         let collateral_value = mul_factor(bottle.collateral_amount, price, denominator);
         assert!(collateral_value * 100 > min_collateral_ratio * bottle.buck_amount, ECollateralRatioTooLow);
+        assert!(bottle.buck_amount >= MINIMAL_BOTTLE_SIZE, EBottleTooSmall);
     }
 
     public(friend) fun record_repay(bottle: &mut Bottle, repay_amount: u64): (bool, u64) {
@@ -79,6 +83,7 @@ module bucket_protocol::bottle {
             let return_sui_amount = mul_factor(bottle.collateral_amount, repay_amount, bottle.buck_amount);
             bottle.collateral_amount = bottle.collateral_amount - return_sui_amount;
             bottle.buck_amount = bottle.buck_amount - repay_amount;
+            assert!(bottle.buck_amount >= MINIMAL_BOTTLE_SIZE, EBottleTooSmall);
             // not fully repaid
             (false, return_sui_amount)
         }
