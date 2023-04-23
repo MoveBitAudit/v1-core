@@ -51,9 +51,9 @@ module bucket_protocol::well {
     public(friend) fun collect_fee<T>(well: &mut Well<T>, input: Balance<T>) {
         let fee_amount = balance::value(&input);
         let total_staked_amount = balance::value(&well.staked);
-        if (total_staked_amount == 0) total_staked_amount = 1;
         balance::join(&mut well.pool, input);
         well.current_s = well.current_s + mul_factor(fee_amount, S_FACTOR, total_staked_amount);
+        std::debug::print(well);
     }
 
     public fun unstake<T>(well: &mut Well<T>, well_token: WellToken<T>): (Balance<BKT>, Balance<T>) {
@@ -77,7 +77,16 @@ module bucket_protocol::well {
     }
 
     #[test_only]
-    public fun new_for_testing<T>(ctx: &mut TxContext): Well<T> {
-        new<T>(ctx)
+    public fun new_for_testing<T>(ctx: &mut TxContext): (Well<T>, WellToken<T>) {
+        let well = new<T>(ctx);
+        let init_bkt = balance::create_for_testing<BKT>(1000);
+        let well_token = stake(&mut well, init_bkt, ctx);
+        (well, well_token)
+    }
+
+    #[test_only]
+    public fun destroy_for_testing<T>(well_token: WellToken<T>) {
+        let WellToken { id, stake_amount: _, start_s: _ } = well_token;
+        object::delete(id);
     }
 }

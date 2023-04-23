@@ -8,6 +8,7 @@ module bucket_protocol::test_redeem {
     use std::debug;
     use bucket_framework::math::mul_factor;
     use bucket_protocol::buck::{Self, BUCK, BucketProtocol};
+    use bucket_protocol::well;
     use bucket_oracle::oracle::{Self, BucketOracle, AdminCap};
 
     #[test]
@@ -19,7 +20,7 @@ module bucket_protocol::test_redeem {
         let scenario_val = test_scenario::begin(dev);
         let scenario = &mut scenario_val;
 
-        let protocol = buck::new_for_testing( test_utils::create_one_time_witness<BUCK>(), test_scenario::ctx(scenario));
+        let (protocol, buck_wt, sui_wt) = buck::new_for_testing( test_utils::create_one_time_witness<BUCK>(), test_scenario::ctx(scenario));
         let (oracle, ocap) = oracle::new_for_testing<SUI>(1000,test_scenario::ctx(scenario));
 
         let sui_input_amount = 1000000;
@@ -47,6 +48,9 @@ module bucket_protocol::test_redeem {
             test_utils::assert_eq(sui_value, mul_factor(buck_for_redemption_amount, 995, 1000));
             balance::destroy_for_testing(sui_output);
         };
+
+        well::destroy_for_testing(buck_wt);
+        well::destroy_for_testing(sui_wt);
 
         test_scenario::end(scenario_val);
         (protocol, oracle, ocap)

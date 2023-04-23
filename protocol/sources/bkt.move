@@ -9,8 +9,6 @@ module bucket_protocol::bkt {
     use std::option;
 
     friend bucket_protocol::tank;
-    friend bucket_protocol::buck;
-    friend bucket_protocol::well;
 
     // TODO: token distribution
     const BKT_TOTAL_SUPPLY: u64 = 1000000000000000; // supply: 1M

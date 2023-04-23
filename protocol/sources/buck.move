@@ -47,8 +47,14 @@ module bucket_protocol::buck {
 
     // Init
 
-    fun init(witness: BUCK, ctx: &mut TxContext) {        
-        transfer::share_object(new_protocol(witness, ctx));
+    fun init(witness: BUCK, ctx: &mut TxContext) {     
+        let protocol = new_protocol(witness, ctx);
+
+        // create wells for SUI and BUCK
+        dof::add(&mut protocol.id, WellType<BUCK> {}, well::new<BUCK>(ctx));
+        dof::add(&mut protocol.id, WellType<SUI> {}, well::new<SUI>(ctx));
+
+        transfer::share_object(protocol);
         transfer::transfer(AdminCap { id: object::new(ctx) }, tx_context::sender(ctx));
     }
 
@@ -70,10 +76,6 @@ module bucket_protocol::buck {
 
         // create SUI bucket
         dof::add(&mut id, BucketType<SUI> {}, bucket::new<SUI>(110, ctx));
-
-        // create wells for SUI and BUCK
-        dof::add(&mut id, WellType<BUCK> {}, well::new<BUCK>(ctx));
-        dof::add(&mut id, WellType<SUI> {}, well::new<SUI>(ctx));
 
         BucketProtocol { id, buck_treasury_cap }
     } 
@@ -309,8 +311,13 @@ module bucket_protocol::buck {
     }
 
     #[test_only]
-    public fun new_for_testing(witness: BUCK, ctx: &mut TxContext): BucketProtocol {
-        new_protocol(witness, ctx)
+    public fun new_for_testing(witness: BUCK, ctx: &mut TxContext): (BucketProtocol, WellToken<BUCK>, WellToken<SUI>) {
+        let protocol = new_protocol(witness, ctx);
+        let (buck_well, buck_well_token) = well::new_for_testing<BUCK>(ctx);
+        let (sui_well, sui_well_token) = well::new_for_testing<SUI>(ctx);
+        dof::add(&mut protocol.id, WellType<BUCK> {}, buck_well);
+        dof::add(&mut protocol.id, WellType<SUI> {}, sui_well);
+        (protocol, buck_well_token, sui_well_token)
     }
 
     #[test_only]
@@ -341,6 +348,16 @@ module bucket_protocol::buck {
         };
 
         let (oracle, ocap) = oracle::new_for_testing<SUI>(1000,test_scenario::ctx(scenario));
+
+        test_scenario::next_tx(scenario, dev);
+        {
+            let protocol = test_scenario::take_shared<BucketProtocol>(scenario);
+            let buck_wt = stake<BUCK>(&mut protocol, balance::create_for_testing<BKT>(1000), test_scenario::ctx(scenario));
+            let sui_wt = stake<SUI>(&mut protocol, balance::create_for_testing<BKT>(1000), test_scenario::ctx(scenario));
+            transfer::public_transfer(buck_wt, dev);
+            transfer::public_transfer(sui_wt, dev);
+            test_scenario::return_shared(protocol);
+        };
 
         let seed = b"bucket protocol";
         vector::push_back(&mut seed, borrower_count);
